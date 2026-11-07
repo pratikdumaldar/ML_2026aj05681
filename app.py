@@ -47,8 +47,8 @@ if uploaded_file is not None:
         st.warning("Please select at least one feature column to run evaluation.")
     else:
         X = df[feature_cols]
-        # Force conversions to integers or standard numeric format to avoid matrix label crashes
-        y_true = df[target_col]
+        # Force conversion to integer or numeric labels for matrix alignments
+        y_true = df[target_col].astype(int) if df[target_col].dtype in ['int64', 'float64'] else df[target_col]
         
         model_path = model_files[model_choice]
         if os.path.exists(model_path):
@@ -68,6 +68,12 @@ if uploaded_file is not None:
                 y_pred = model.predict(X)
                 y_prob = None
 
+            # Handle prediction/target mapping synchronization
+            try:
+                y_pred = y_pred.astype(y_true.dtype)
+            except Exception:
+                pass
+
             # Calculate Performance Metrics
             acc = accuracy_score(y_true, y_pred)
             prec = precision_score(y_true, y_pred, zero_division=0)
@@ -75,7 +81,7 @@ if uploaded_file is not None:
             f1 = f1_score(y_true, y_pred, zero_division=0)
             mcc = matthews_corrcoef(y_true, y_pred)
             
-            # Handle situations where AUC score calculation breaks due to single-class target arrays
+            # Handle instances where target variables break single-class matrices
             try:
                 auc = roc_auc_score(y_true, y_prob) if y_prob is not None else "N/A"
             except Exception:
@@ -98,20 +104,19 @@ if uploaded_file is not None:
                 st.write("#### Interactive Confusion Matrix")
                 cm = confusion_matrix(y_true, y_pred)
                 
-                # Robustly map text matrices to visualization
                 x_labels = ['Predicted Negative', 'Predicted Positive']
                 y_labels = ['Actual Negative', 'Actual Positive']
                 
-                # Simplified robust imshow without text_auto parameters to prevent version bugs
+                # Corrected color keyword: color_continuous_scale
                 fig_cm = px.imshow(
                     cm, 
                     x=x_labels, 
                     y=y_labels, 
-                    colorscale='Blues',
+                    color_continuous_scale='Blues',
                     labels=dict(x="Predicted Class", y="Actual Class", color="Count")
                 )
                 
-                # Force standard text values inside the blocks manually
+                # Force standard numeric overlay
                 fig_cm.update_traces(text=cm, texttemplate="%{text}")
                 fig_cm.update_layout(width=500, height=400, margin=dict(t=50, b=50, l=50, r=50))
                 st.plotly_chart(fig_cm, use_container_width=True)
