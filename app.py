@@ -47,6 +47,7 @@ if uploaded_file is not None:
         st.warning("Please select at least one feature column to run evaluation.")
     else:
         X = df[feature_cols]
+        # Force conversions to integers or standard numeric format to avoid matrix label crashes
         y_true = df[target_col]
         
         model_path = model_files[model_choice]
@@ -73,7 +74,12 @@ if uploaded_file is not None:
             rec = recall_score(y_true, y_pred, zero_division=0)
             f1 = f1_score(y_true, y_pred, zero_division=0)
             mcc = matthews_corrcoef(y_true, y_pred)
-            auc = roc_auc_score(y_true, y_prob) if y_prob is not None else "N/A"
+            
+            # Handle situations where AUC score calculation breaks due to single-class target arrays
+            try:
+                auc = roc_auc_score(y_true, y_prob) if y_prob is not None else "N/A"
+            except Exception:
+                auc = "N/A (Requires both classes in target)"
 
             # Layout for metrics
             st.write(f"### 📊 Performance Metrics: {model_choice}")
@@ -92,30 +98,33 @@ if uploaded_file is not None:
                 st.write("#### Interactive Confusion Matrix")
                 cm = confusion_matrix(y_true, y_pred)
                 
-                # Clean labels for the plot
+                # Robustly map text matrices to visualization
                 x_labels = ['Predicted Negative', 'Predicted Positive']
                 y_labels = ['Actual Negative', 'Actual Positive']
                 
-                # Using px.imshow to replace figure_factory
+                # Simplified robust imshow without text_auto parameters to prevent version bugs
                 fig_cm = px.imshow(
                     cm, 
                     x=x_labels, 
                     y=y_labels, 
-                    text_auto=True, 
                     colorscale='Blues',
-                    labels=dict(x="Predicted", y="Actual", color="Count")
+                    labels=dict(x="Predicted Class", y="Actual Class", color="Count")
                 )
+                
+                # Force standard text values inside the blocks manually
+                fig_cm.update_traces(text=cm, texttemplate="%{text}")
                 fig_cm.update_layout(width=500, height=400, margin=dict(t=50, b=50, l=50, r=50))
                 st.plotly_chart(fig_cm, use_container_width=True)
 
             with tab2:
-                if y_prob is not None:
+                if y_prob is not None and len(set(y_true)) > 1:
                     c1, c2 = st.columns(2)
                     
                     with c1:
                         st.write("#### ROC Curve")
                         fpr, tpr, _ = roc_curve(y_true, y_prob)
-                        fig_roc = px.line(x=fpr, y=tpr, labels={'x': 'False Positive Rate', 'y': 'True Positive Rate'}, title=f"ROC Curve (AUC: {auc:.4f})")
+                        auc_val = f"{auc:.4f}" if isinstance(auc, float) else "N/A"
+                        fig_roc = px.line(x=fpr, y=tpr, labels={'x': 'False Positive Rate', 'y': 'True Positive Rate'}, title=f"ROC Curve (AUC: {auc_val})")
                         fig_roc.add_shape(type="line", line=dict(dash='dash', color='red'), x0=0, x1=1, y0=0, y1=1)
                         st.plotly_chart(fig_roc, use_container_width=True)
                         
@@ -125,7 +134,7 @@ if uploaded_file is not None:
                         fig_pr = px.line(x=recall, y=precision, labels={'x': 'Recall', 'y': 'Precision'}, title="Precision-Recall Curve")
                         st.plotly_chart(fig_pr, use_container_width=True)
                 else:
-                    st.info("Evaluation curves require probability predictions, which are unavailable for this model configuration.")
+                    st.info("Evaluation curves require probability predictions and both binary classes (0 and 1) to exist inside the dataset.")
 
             with tab3:
                 st.write("#### Inspect Data Rows and Predictions")
