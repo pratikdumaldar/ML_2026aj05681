@@ -43,10 +43,11 @@ if uploaded_file is not None:
     # if 'target' in df.columns:
     #     X = df.drop('target', axis=1)
     #     y_true = df['target']
-if 'Outcome' in df.columns:
+
+    if 'Outcome' in df.columns:
         X = df.drop('Outcome', axis=1)
         y_true = df['Outcome']
-        
+
         model_path = model_files[model_choice]
         if os.path.exists(model_path):
             model = joblib.load(model_path)
