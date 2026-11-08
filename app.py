@@ -40,10 +40,13 @@ if uploaded_file is not None:
     st.write("### Dataset Preview")
     st.dataframe(df.head())
 
-    if 'target' in df.columns:
-        X = df.drop('target', axis=1)
-        y_true = df['target']
-
+    # if 'target' in df.columns:
+    #     X = df.drop('target', axis=1)
+    #     y_true = df['target']
+if 'Outcome' in df.columns:
+        X = df.drop('Outcome', axis=1)
+        y_true = df['Outcome']
+        
         model_path = model_files[model_choice]
         if os.path.exists(model_path):
             model = joblib.load(model_path)
